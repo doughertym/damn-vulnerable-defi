@@ -1,12 +1,14 @@
 require("@nomiclabs/hardhat-waffle");
 require('@openzeppelin/hardhat-upgrades');
 require('hardhat-dependency-compiler');
+require('solidity-coverage')
 
 module.exports = {
     networks: {
       hardhat: {
-        allowUnlimitedContractSize: true
-      }  
+          allowUnlimitedContractSize: true,
+          gas:      "auto"
+      }
     },
     solidity: {
       compilers: [
