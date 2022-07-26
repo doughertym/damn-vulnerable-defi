@@ -3,8 +3,8 @@
 pragma solidity ^0.8.0;
 
 import "hardhat/console.sol";
-import "./FlashLoanerPool.sol";
-import "./TheRewarderPool.sol";
+import "../the-rewarder/FlashLoanerPool.sol";
+import "../the-rewarder/TheRewarderPool.sol";
 
 /**
  * @title TheRewarderPool

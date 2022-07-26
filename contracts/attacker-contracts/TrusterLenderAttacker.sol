@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.0;
 
-import "./TrusterLenderPool.sol";
+import "../truster/TrusterLenderPool.sol";
 
 contract TrusterLenderAttacker {
     function attack(
